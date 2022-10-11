@@ -13,9 +13,9 @@ class DbConnector:
     PASSWORD = "test123" // The password you set for said user
     """
     def __init__(self,
-                 DATABASE='admin',
+                 DATABASE=config("DB_NAME"),
                  HOST="tdt4225-24.idi.ntnu.no",
-                 USER="mongo_gruppe_24",
+                 USER=config("DB_USER"),
                  PASSWORD=config("DB_PASS")):
         uri = "mongodb://%s:%s@%s/%s" % (USER, PASSWORD, HOST, DATABASE)
         # Connect to the databases
