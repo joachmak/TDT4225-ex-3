@@ -1,2 +1,4 @@
 """ Constant variables """
 MAX_TRACKPOINT_COUNT = 2500
+COLLECTION_USERS = "User"
+COLLECTION_ACTIVITIES = "Activity"
