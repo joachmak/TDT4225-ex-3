@@ -40,15 +40,37 @@ def insert_activity(conn: DbConnector):
 
     utils.db.insert_many(conn, COLLECTION_ACTIVITIES, activity_list)
 
+
+def get_activity_dict(conn: DbConnector):
+    activities = utils.db.get_all(conn, COLLECTION_ACTIVITIES)
+    activities_dict = {}
+    for activity in activities:
+        start_date = activity["start_time"]
+        if start_date in activities_dict:
+            activities_dict[start_date] = [activities_dict[start_date], activity]
+        else:
+            activities_dict[start_date] = activity
+    return activities_dict
+
+
+def insert_trackpoints(conn: DbConnector):
+    activities_dict: dict = get_activity_dict(conn)
+    print(utils.os.get_trackpoints("010", activities_dict))
+
+
 def main():
-    conn: DbConnector = DbConnector()
+    #conn: DbConnector = DbConnector()
     # create_coll(conn, COLLECTION_USERS)
     #insert_users(conn)
-    insert_activity(conn)
+    #insert_activity(conn)
+    #insert_trackpoints(conn)
+    utils.os.get_activities()
 
 
 
-    conn.close_connection()
+
+
+    #conn.close_connection()
 
 
 if __name__ == "__main__":

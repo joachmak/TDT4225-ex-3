@@ -1,7 +1,9 @@
 """ OS (local) operations """
 import os
 import re
-import datetime
+import uuid
+
+import classes
 import utils.constants as constants
 from decouple import config
 
@@ -36,21 +38,68 @@ def get_labeled_users() -> list:
     return list(filter(lambda labeled_id: labeled_id in all_users, labeled_ids))
 
 
-# ACTIVITIES
+def get_labels_from_file(filepath):
+    lines = read_rstrip_file(filepath)
+    res = []
+    for line in lines[1:]:
+        res.append(line.split("\t"))
+    return res
 
+
+# ACTIVITIES
 def get_activities():
     """
     Get activity data for all users listed in labeled_ids.
     Format: (end_date, start_date, transportation_mode, user_id)
     """
-    labeled_ids = get_labeled_ids()
-    activity_data = []
-    for user in labeled_ids:
-        path = os.path.join(config("DATASET_ROOT_PATH"), "dataset", "Data", user, "labels.txt")
-        # Format activity entries into a list
-        activity_data += tuple(map(lambda line: tuple(line.split("\t") + [user]), read_rstrip_file(path)[1:]))
-    return activity_data
+    activities_to_insert = []
+    user_directories = get_all_users()
+    user_directories.sort(key=lambda x: int(x))
+    labeled_users = get_labeled_users()
 
+    for dir in user_directories:
+        print("Scanning user " + dir)
+        base_path = os.path.join(config("DATASET_ROOT_PATH"), "dataset", "Data", dir)
+        trajectory_path = os.path.join(base_path, "Trajectory")
+        possible_labels_path = os.path.join(base_path, "labels.txt")
+        labeled_activities_dict = {}
+        if dir in labeled_users:
+            print("THIS IS A LABELED USER")
+            labels = get_labels_from_file(possible_labels_path)
+            #print(labels)
+            for label in labels:
+                start = label[0]
+                labeled_activities_dict[start] = label
+
+
+        #print(".plt files for user " + dir + ":")
+        for _, __, files in os.walk(trajectory_path, topdown=False):
+            #print(f"{len(files)} FILES IN TOTAL\n\n")
+            for plt_filename in files:
+                _id = uuid.uuid4()
+                #print("FILE " + plt_filename)
+                data = read_trackpoint_data(os.path.join(trajectory_path, plt_filename))
+                if len(data) > 0:
+                    first_tp = data[0]
+                    last_tp = data[len(data) - 1]
+                    start_date = first_tp[3]
+                    end_date = last_tp[3]
+                    label = None
+                    if start_date in labeled_activities_dict and end_date in labeled_activities_dict[start_date]:
+                        # Add labeled activity
+                        label = labeled_activities_dict[start_date][2]
+                        print("PLT FILE " + plt_filename + " IS A LABELED ACTIVITY !!! Label " + label)
+                    activities_to_insert.append(classes.Activity(str(_id), label, start_date, end_date, dir))
+                    add_trackpoints(data, _id)
+                    # Add unlabeled activity
+
+
+
+def add_trackpoints(trackpoint_data, activity_id):
+    print("\n\n\n")
+    tp_to_insert = list(map(lambda tp: (*tp, activity_id), trackpoint_data))
+    for tp in tp_to_insert[0:10]:
+        print(tp)
 
 # TRACK POINTS
 
@@ -73,42 +122,18 @@ def _transform_trackpoint_line(line: str):
     # merge date and time
     date = line.pop(3)
     time = line.pop(3)
-    line.append(datetime.datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M:%S"))
+    line.append(f"{date.replace('-', '/')} {time}")
     return tuple(line)
 
 
-def read_trackpoint_data(path, activities_dict: dict) -> list:
+def read_trackpoint_data(path) -> list:
     """ Read trajectory data, ignore first 6 lines """
     with open(path) as f:
         lines = f.readlines()[6:]
         if len(lines) > constants.MAX_TRACKPOINT_COUNT:
-            print(f"\t\t...Skipping file as it contains too many trackpoints (>{constants.MAX_TRACKPOINT_COUNT})")
+            #print(f"\t\t...Skipping file as it contains too many trackpoints (>{constants.MAX_TRACKPOINT_COUNT})")
             return []
-        include_trackpoint = False
-        start_time = None
-        result = []
-        temp_result = []
-        for line in lines:
-            l = _transform_trackpoint_line(line)
-            if not include_trackpoint and str(l[3]) in activities_dict:
-                print(f"\t\tFirst trackpoint for activity {str(l[3])}: {l}")
-                include_trackpoint = True
-                start_time = str(l[3])
-            if include_trackpoint:
-                temp_result.append(l + (activities_dict[start_time]["activity_id"],))
-            if start_time is None:
-                continue
-            if str(l[3]) == str(activities_dict[start_time]["end_time"]):
-                print(f"\t\tLast trackpoint for activity {str(l[3])}: {l}")
-                include_trackpoint = False
-                start_time = None
-                result += temp_result
-                temp_result.clear()
-            if start_time is not None and l[3] > activities_dict[start_time]["end_time"]:
-                include_trackpoint = False
-                start_time = None
-                temp_result.clear()
-        return result
+        return list(map(lambda line: _transform_trackpoint_line(line), lines))
 
 
 def get_trackpoints(user_id: str, activities_dict: dict) -> list:

@@ -2,7 +2,8 @@ from datetime import datetime
 
 
 class Activity:
-    def __init__(self, transportation_mode: str, start_time: datetime, end_time: datetime, uid: str):
+    def __init__(self, _id: str, transportation_mode: str, start_time: datetime, end_time: datetime, uid: str):
+        self._id = _id
         self.transportation_mode = transportation_mode
         self.start_time = start_time
         self.end_time = end_time
