@@ -60,7 +60,9 @@ def insert_trackpoints(conn: DbConnector):
 
 def main():
     #conn: DbConnector = DbConnector()
-    # create_coll(conn, COLLECTION_USERS)
+    #create_coll(conn, COLLECTION_USERS)
+    #create_coll(conn, COLLECTION_ACTIVITIES)
+    #create_coll(conn, COLLECTION_TRACKPOINTS)
     #insert_users(conn)
     #insert_activity(conn)
     #insert_trackpoints(conn)

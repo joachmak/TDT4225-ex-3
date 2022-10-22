@@ -11,3 +11,18 @@ def insert_many(connection: DbConnector, collection: str, data: list):
 
 def get_all(connection: DbConnector, collection: str):
     return connection.db[collection].find({})
+
+
+
+def execute_query_get_result(db, query: str, message: str = None, print_success=True):
+    """ Execute query that requires no payload. Return True if successful, False otherwise """
+    if message is not None:
+        print(message)
+    try:
+        db.cursor.execute(query)
+        if print_success:
+            print("\t...SUCCESS")
+        return db.cursor.fetchall()
+    except Exception as e:
+        print(e)
+        return None
