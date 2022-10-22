@@ -1,10 +1,12 @@
 """ OS (local) operations """
+import logging
 import os
 import re
 import uuid
-
 import classes
 import utils.constants as constants
+from utils.db import insert_class_data
+from utils.db_connector import DbConnector
 from decouple import config
 
 
@@ -46,62 +48,88 @@ def get_labels_from_file(filepath):
     return res
 
 
-# ACTIVITIES
-def get_activities():
+def upload_activities_and_trackpoints(connection: DbConnector) -> dict:
     """
-    Get activity data for all users listed in labeled_ids.
-    Format: (end_date, start_date, transportation_mode, user_id)
+    Get activity data for all users.
+    Each .plt file is an activity. If the .plt file doesn't exactly match with a labeled activity on start- and end-date,
+    then the trackpoints are added to an unlabeled activity. Non-matching .plt files are added to an activity that has
+    start_date and end_date that matches the .plt file's first and last row.
+    Thus, all activites should have trackpoints that exactly match their start- and end-date.
+    This method calls db operations, which is not preferable, but slightly improves efficiency because the "setup"
+    doesn't have to happen before each insert.
     """
-    activities_to_insert = []
+    logger = logging.getLogger("getActivities")
     user_directories = get_all_users()
     user_directories.sort(key=lambda x: int(x))
     labeled_users = get_labeled_users()
-
-    for dir in user_directories:
-        print("Scanning user " + dir)
-        base_path = os.path.join(config("DATASET_ROOT_PATH"), "dataset", "Data", dir)
+    total_trackpoints_inserted = 0
+    total_activities_inserted = 0
+    user_activities: dict = {}  # (user_id: str -> activity_ids: str[] )
+    # for each user
+    for user_dir in user_directories:  # user_dir is a str with the user id as a name
+        activities_to_insert: list = []
+        trackpoints_to_insert: list = []
+        print("Scanning user " + user_dir)
+        base_path = os.path.join(config("DATASET_ROOT_PATH"), "dataset", "Data", user_dir)
         trajectory_path = os.path.join(base_path, "Trajectory")
         possible_labels_path = os.path.join(base_path, "labels.txt")
         labeled_activities_dict = {}
-        if dir in labeled_users:
-            print("THIS IS A LABELED USER")
+        skipped_plt_files_count = 0
+        file_count = 0
+        if user_dir not in user_activities:  # initialize arr for storing activity ids of user
+            user_activities[user_dir] = []
+        # generate labeled activities dict: (key, val) = (start_date, labeled_activity_data)
+        if user_dir in labeled_users:
+            print("\tTHIS IS A LABELED USER")
             labels = get_labels_from_file(possible_labels_path)
-            #print(labels)
-            for label in labels:
-                start = label[0]
-                labeled_activities_dict[start] = label
+            for transportation_mode in labels:
+                start = transportation_mode[0]
+                labeled_activities_dict[start] = transportation_mode
 
-
-        #print(".plt files for user " + dir + ":")
+        # go through each plt file (1 .plt file is 1 activity)
         for _, __, files in os.walk(trajectory_path, topdown=False):
-            #print(f"{len(files)} FILES IN TOTAL\n\n")
+            file_count = len(files)
+            # print(f"{len(files)} FILES IN TOTAL\n\n")
+            print(f"\tReading {len(files)} .plt-files...")
             for plt_filename in files:
-                _id = uuid.uuid4()
-                #print("FILE " + plt_filename)
+                _id = uuid.uuid4()  # generate activity id
                 data = read_trackpoint_data(os.path.join(trajectory_path, plt_filename))
-                if len(data) > 0:
+                if len(data) > 0:  # If there are <=2500 trackpoints
                     first_tp = data[0]
                     last_tp = data[len(data) - 1]
-                    start_date = first_tp[3]
-                    end_date = last_tp[3]
-                    label = None
-                    if start_date in labeled_activities_dict and end_date in labeled_activities_dict[start_date]:
+                    activity_start_date = first_tp[3]
+                    activity_end_date = last_tp[3]
+                    transportation_mode = None
+                    if activity_start_date in labeled_activities_dict and activity_end_date in labeled_activities_dict[activity_start_date]:
                         # Add labeled activity
-                        label = labeled_activities_dict[start_date][2]
-                        print("PLT FILE " + plt_filename + " IS A LABELED ACTIVITY !!! Label " + label)
-                    activities_to_insert.append(classes.Activity(str(_id), label, start_date, end_date, dir))
-                    add_trackpoints(data, _id)
-                    # Add unlabeled activity
+                        transportation_mode = labeled_activities_dict[activity_start_date][2]
+                        print("\t\t.plt file " + plt_filename + " is a labeled activity with transportation Label " + transportation_mode)
+                    activity: classes.Activity = classes.Activity(str(_id), transportation_mode, activity_start_date, activity_end_date, user_dir)
+                    activities_to_insert.append(activity)
+                    user_activities[user_dir].append(str(_id))
+                    trackpoints_to_insert += process_trackpoint_data(data, _id)
+                else:
+                    skipped_plt_files_count += 1
+        total_activities_inserted += len(activities_to_insert)
+        total_trackpoints_inserted += len(trackpoints_to_insert)
+        insert_class_data(connection, constants.COLLECTION_ACTIVITIES, activities_to_insert,
+                          f"\tInserting {len(activities_to_insert)} activities for user {user_dir} ...")
+        insert_class_data(connection, constants.COLLECTION_TRACKPOINTS, trackpoints_to_insert,
+                          f"\tInserting {len(trackpoints_to_insert)} trackpoints for user {user_dir} ...")
+        print(f"\tTotal: {total_trackpoints_inserted} trackpoints, {total_activities_inserted} activities")
+        # Logging to file (see 'log'-directory)
+        if skipped_plt_files_count + len(activities_to_insert) == file_count:
+            logger.debug(f"\tSkipped {skipped_plt_files_count} .plt files (activities) because they had >2500 "
+                         f"trackpoints. {skipped_plt_files_count} + {len(activities_to_insert)} = {file_count}")
+        else:
+            logger.error(f"\tSkipped {skipped_plt_files_count} .plt files (activities) because they had >2500 "
+                         f"trackpoints AND THIS IS INCORRECT!!!")
+    return user_activities
 
 
+def process_trackpoint_data(trackpoint_data, activity_id):
+    return list(map(lambda tp: classes.TrackPoint(tp[0], tp[1], tp[2], tp[3], str(activity_id)), trackpoint_data))
 
-def add_trackpoints(trackpoint_data, activity_id):
-    print("\n\n\n")
-    tp_to_insert = list(map(lambda tp: (*tp, activity_id), trackpoint_data))
-    for tp in tp_to_insert[0:10]:
-        print(tp)
-
-# TRACK POINTS
 
 def _is_float(string: str):
     return re.match(r'^-?\d+(?:\.\d+)$', string)
@@ -127,7 +155,7 @@ def _transform_trackpoint_line(line: str):
 
 
 def read_trackpoint_data(path) -> list:
-    """ Read trajectory data, ignore first 6 lines """
+    """ Read trajectory data, ignore first 6 lines. Return empty list if there are >2500 trackpoints. """
     with open(path) as f:
         lines = f.readlines()[6:]
         if len(lines) > constants.MAX_TRACKPOINT_COUNT:
@@ -135,20 +163,3 @@ def read_trackpoint_data(path) -> list:
             return []
         return list(map(lambda line: _transform_trackpoint_line(line), lines))
 
-
-def get_trackpoints(user_id: str, activities_dict: dict) -> list:
-    """
-    Get list of trackpoints for user, given a list of activities sorted on start_date
-    Format: (lat, lon, alt, datetime)
-    """
-    print(f"Getting trackpoints for user {user_id}")
-    base_path = os.path.join(config("DATASET_ROOT_PATH"), "dataset", "Data", user_id, "Trajectory")
-    data = []
-    counter = 1
-    for _, __, files in os.walk(base_path, topdown=False):
-        for filename in files:
-            full_path = os.path.join(base_path, filename)
-            print(f"\t...Reading trackpoints from file {counter} at {full_path}")
-            data += read_trackpoint_data(full_path, activities_dict)
-            counter += 1
-    return data
