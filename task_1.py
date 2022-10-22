@@ -3,7 +3,6 @@ import os
 
 import utils
 from classes.user import User
-from classes.activity import Activity
 from utils.constants import COLLECTION_ACTIVITIES, COLLECTION_USERS, COLLECTION_TRACKPOINTS
 from utils.db import drop_collections, create_collections
 from utils.db_connector import DbConnector
@@ -24,37 +23,6 @@ def insert_users(conn: DbConnector, user_activity_mappings: dict):
         user_list.append(vars(user_obj))
     print(f"Inserting {len(user_list)} users...")
     utils.db.insert_many(conn, COLLECTION_USERS, user_list)
-        
-
-def insert_activity(conn: DbConnector):
-    """ Inserts activity for user """
-    activites = utils.os.upload_activities_and_trackpoints()
-
-    activity_list = []
-    for item in activites:
-        activity_obj = Activity(uid = item[3], transportation_mode= item[2], end_time = item[1], start_time = item[0])
-        #print(vars(activity_obj))
-        activity_list.append(vars(activity_obj))
-    print(activity_list)
-
-    utils.db.insert_many(conn, COLLECTION_ACTIVITIES, activity_list)
-
-
-def get_activity_dict(conn: DbConnector):
-    activities = utils.db.get_all(conn, COLLECTION_ACTIVITIES)
-    activities_dict = {}
-    for activity in activities:
-        start_date = activity["start_time"]
-        if start_date in activities_dict:
-            activities_dict[start_date] = [activities_dict[start_date], activity]
-        else:
-            activities_dict[start_date] = activity
-    return activities_dict
-
-
-def insert_trackpoints(conn: DbConnector):
-    activities_dict: dict = get_activity_dict(conn)
-    print(utils.os.get_trackpoints("010", activities_dict))
 
 
 def configure_logger():

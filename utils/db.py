@@ -22,10 +22,6 @@ def insert_many(connection: DbConnector, collection: str, data: list):
     connection.db[collection].insert_many(data)
 
 
-def get_all(connection: DbConnector, collection: str):
-    return connection.db[collection].find({})
-
-
 def drop_collections(connection: DbConnector, collections: list):
     for col_name in collections:
         print(f"Dropping collection {col_name}...")

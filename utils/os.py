@@ -3,7 +3,6 @@ import logging
 import os
 import re
 import uuid
-
 import classes
 import utils.constants as constants
 from utils.db import insert_class_data
@@ -164,20 +163,3 @@ def read_trackpoint_data(path) -> list:
             return []
         return list(map(lambda line: _transform_trackpoint_line(line), lines))
 
-
-def get_trackpoints(user_id: str, activities_dict: dict) -> list:
-    """
-    Get list of trackpoints for user, given a list of activities sorted on start_date
-    Format: (lat, lon, alt, datetime)
-    """
-    print(f"Getting trackpoints for user {user_id}")
-    base_path = os.path.join(config("DATASET_ROOT_PATH"), "dataset", "Data", user_id, "Trajectory")
-    data = []
-    counter = 1
-    for _, __, files in os.walk(base_path, topdown=False):
-        for filename in files:
-            full_path = os.path.join(base_path, filename)
-            print(f"\t...Reading trackpoints from file {counter} at {full_path}")
-            data += read_trackpoint_data(full_path, activities_dict)
-            counter += 1
-    return data
