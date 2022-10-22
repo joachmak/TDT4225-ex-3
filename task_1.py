@@ -9,19 +9,20 @@ from utils.db import drop_collections, create_collections
 from utils.db_connector import DbConnector
 
 
-def insert_users(conn: DbConnector):
+def insert_users(conn: DbConnector, user_activity_mappings: dict):
     """ Inserts users based on directory structure """
     all_users = utils.os.get_all_users()
     labeled_users = utils.os.get_labeled_ids()
     users_to_insert = list(map(lambda usr: (usr, usr in labeled_users), all_users))
-    #print(users_to_insert)
 
     user_list = []
     for user in users_to_insert:
-        user_obj = User(user[0], user[1], [])
+        if user[0] not in user_activity_mappings:
+            logging.getLogger("insert_users").error(f"user {user} not in activity dictionary.")
+            continue
+        user_obj = User(user[0], user[1], user_activity_mappings[user[0]])
         user_list.append(vars(user_obj))
-
-    #print(user_list)
+    print(f"Inserting {len(user_list)} users...")
     utils.db.insert_many(conn, COLLECTION_USERS, user_list)
         
 
@@ -74,8 +75,8 @@ def main():
     conn: DbConnector = DbConnector()
     drop_collections(conn, all_collections)
     create_collections(conn, all_collections)
-    insert_users(conn)
-    utils.os.upload_activities_and_trackpoints(conn)
+    user_activity_id_mappings = utils.os.upload_activities_and_trackpoints(conn)
+    insert_users(conn, user_activity_id_mappings)
     conn.close_connection()
 
 

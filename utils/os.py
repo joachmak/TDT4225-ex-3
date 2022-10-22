@@ -49,8 +49,7 @@ def get_labels_from_file(filepath):
     return res
 
 
-# ACTIVITIES
-def upload_activities_and_trackpoints(connection: DbConnector):
+def upload_activities_and_trackpoints(connection: DbConnector) -> dict:
     """
     Get activity data for all users.
     Each .plt file is an activity. If the .plt file doesn't exactly match with a labeled activity on start- and end-date,
@@ -66,6 +65,7 @@ def upload_activities_and_trackpoints(connection: DbConnector):
     labeled_users = get_labeled_users()
     total_trackpoints_inserted = 0
     total_activities_inserted = 0
+    user_activities: dict = {}  # (user_id: str -> activity_ids: str[] )
     # for each user
     for user_dir in user_directories:  # user_dir is a str with the user id as a name
         activities_to_insert: list = []
@@ -77,16 +77,16 @@ def upload_activities_and_trackpoints(connection: DbConnector):
         labeled_activities_dict = {}
         skipped_plt_files_count = 0
         file_count = 0
+        if user_dir not in user_activities:  # initialize arr for storing activity ids of user
+            user_activities[user_dir] = []
         # generate labeled activities dict: (key, val) = (start_date, labeled_activity_data)
         if user_dir in labeled_users:
             print("\tTHIS IS A LABELED USER")
             labels = get_labels_from_file(possible_labels_path)
-            #print(labels)
             for transportation_mode in labels:
                 start = transportation_mode[0]
                 labeled_activities_dict[start] = transportation_mode
 
-        # print(".plt files for user " + dir + ":")
         # go through each plt file (1 .plt file is 1 activity)
         for _, __, files in os.walk(trajectory_path, topdown=False):
             file_count = len(files)
@@ -107,6 +107,7 @@ def upload_activities_and_trackpoints(connection: DbConnector):
                         print("\t\t.plt file " + plt_filename + " is a labeled activity with transportation Label " + transportation_mode)
                     activity: classes.Activity = classes.Activity(str(_id), transportation_mode, activity_start_date, activity_end_date, user_dir)
                     activities_to_insert.append(activity)
+                    user_activities[user_dir].append(str(_id))
                     trackpoints_to_insert += process_trackpoint_data(data, _id)
                 else:
                     skipped_plt_files_count += 1
@@ -116,13 +117,15 @@ def upload_activities_and_trackpoints(connection: DbConnector):
                           f"\tInserting {len(activities_to_insert)} activities for user {user_dir} ...")
         insert_class_data(connection, constants.COLLECTION_TRACKPOINTS, trackpoints_to_insert,
                           f"\tInserting {len(trackpoints_to_insert)} trackpoints for user {user_dir} ...")
+        print(f"\tTotal: {total_trackpoints_inserted} trackpoints, {total_activities_inserted} activities")
+        # Logging to file (see 'log'-directory)
         if skipped_plt_files_count + len(activities_to_insert) == file_count:
             logger.debug(f"\tSkipped {skipped_plt_files_count} .plt files (activities) because they had >2500 "
                          f"trackpoints. {skipped_plt_files_count} + {len(activities_to_insert)} = {file_count}")
         else:
             logger.error(f"\tSkipped {skipped_plt_files_count} .plt files (activities) because they had >2500 "
                          f"trackpoints AND THIS IS INCORRECT!!!")
-        print(f"\tTotal: {total_trackpoints_inserted} trackpoints, {total_activities_inserted} activities")
+    return user_activities
 
 
 def process_trackpoint_data(trackpoint_data, activity_id):
