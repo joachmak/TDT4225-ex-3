@@ -128,7 +128,7 @@ def upload_activities_and_trackpoints(connection: DbConnector) -> dict:
 
 
 def process_trackpoint_data(trackpoint_data, activity_id):
-    return list(map(lambda tp: classes.TrackPoint(tp[0], tp[1], tp[2], tp[3], activity_id), trackpoint_data))
+    return list(map(lambda tp: classes.TrackPoint(tp[0], tp[1], tp[2], tp[3], str(activity_id)), trackpoint_data))
 
 
 def _is_float(string: str):
