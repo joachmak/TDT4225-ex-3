@@ -4,14 +4,24 @@ from utils.db_connector import DbConnector
 
 def task_3(connection: DbConnector):
     """ Find top 20 users with the highest number of activities """
-    users = connection.db[COLLECTION_USERS].find({})
-    l = list(map(lambda user: [user["_id"], len(user["activity_ids"])], users))
-    l.sort(key=lambda user: user[1], reverse=True)
-    i = 1
-    print("pos. [user, activity count]:")
-    for record in l[:20]:
-        print(f"{i}. {record}")
-        i += 1
+    pipeline = [
+        {
+            "$project": {
+                "number of activities": {
+                    "$size": "$activity_ids"
+                }
+            },
+        },
+        {
+            "$sort": {"number of activities": -1}
+        },
+        {
+            "$limit": 20
+        }
+    ]
+    users = connection.db[COLLECTION_USERS].aggregate(pipeline)
+    for i in range(20):
+        print(f"{i + 1}. {users.next()}")
 
 
 def main():
