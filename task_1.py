@@ -1,14 +1,12 @@
+import logging
+import os
+
 import utils
-from classes.db import Db
 from classes.user import User
 from classes.activity import Activity
-from utils.constants import COLLECTION_ACTIVITIES, COLLECTION_USERS
+from utils.constants import COLLECTION_ACTIVITIES, COLLECTION_USERS, COLLECTION_TRACKPOINTS
+from utils.db import drop_collections, create_collections
 from utils.db_connector import DbConnector
-
-
-def create_coll(conn: DbConnector, collection_name):
-    collection = conn.db.create_collection(collection_name)    
-    print('Created collection: ', collection)
 
 
 def insert_users(conn: DbConnector):
@@ -29,7 +27,7 @@ def insert_users(conn: DbConnector):
 
 def insert_activity(conn: DbConnector):
     """ Inserts activity for user """
-    activites = utils.os.get_activities()
+    activites = utils.os.upload_activities_and_trackpoints()
 
     activity_list = []
     for item in activites:
@@ -58,19 +56,27 @@ def insert_trackpoints(conn: DbConnector):
     print(utils.os.get_trackpoints("010", activities_dict))
 
 
+def configure_logger():
+    try:
+        os.mkdir("log")
+    except FileExistsError:
+        pass
+    logging.basicConfig(filename="log/task_1.log",
+                        filemode="a",
+                        format="%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s",
+                        datefmt="%H:%M:%S",
+                        level=logging.DEBUG)
+
+
 def main():
-    #conn: DbConnector = DbConnector()
-    # create_coll(conn, COLLECTION_USERS)
-    #insert_users(conn)
-    #insert_activity(conn)
-    #insert_trackpoints(conn)
-    utils.os.get_activities()
-
-
-
-
-
-    #conn.close_connection()
+    configure_logger()
+    all_collections: list = [COLLECTION_USERS, COLLECTION_TRACKPOINTS, COLLECTION_ACTIVITIES]
+    conn: DbConnector = DbConnector()
+    drop_collections(conn, all_collections)
+    create_collections(conn, all_collections)
+    insert_users(conn)
+    utils.os.upload_activities_and_trackpoints(conn)
+    conn.close_connection()
 
 
 if __name__ == "__main__":
