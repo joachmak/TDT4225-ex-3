@@ -52,71 +52,69 @@ def task_4(connection: DbConnector):
     activities.close()
 
 
-def distance(in_lat, in_long, in_lat2, in_long2):
-    lat_dist = abs(in_lat2 - in_lat)
-    long_dist = abs(in_long2 - in_long)
-    #print(f"lat1: {in_lat}, lon1: {in_long} lat2: {in_lat2}, lon2: {in_long2}")
-    
-    #Assuming that the Earth is a sphere with a circumference of 40075 km.
-    #adjust for earth curvature
-    #This adjusts for 1 degree of latitude/longitude
-    len_lat = 111.32 #km
-    len_lon = 40075* np.cos( in_lat ) / 360 #km
-    euclidean_dist = np.sqrt((lat_dist*len_lat)**2 + (long_dist*len_lon)**2)
 
 
-    #print(f"Distance: {euclidean_dist} km")
-    return euclidean_dist    
 
 def task_7(connection: DbConnector):
+    from haversine import haversine, Unit
     import pandas as pd
-    #print_task_number(7)
-
-    users: Cursor = connection.db[COLLECTION_USERS].find({})
-    activities: Cursor = connection.db[COLLECTION_ACTIVITIES].find({})
-    trackpoints: Cursor =connection.db[COLLECTION_TRACKPOINTS].aggregate([{
+    trackpoints_2: Cursor =connection.db[COLLECTION_TRACKPOINTS].aggregate([{
+    "$match": {
+        "uid": "112"
+        }
+    }])
+    activities: Cursor = connection.db[COLLECTION_ACTIVITIES].aggregate([{
         "$match": {
-            "uid": "112"
+            "transportation_mode": "walk"
         }
     }])
 
-    
-    
-    #users_df = pd.DataFrame(list(users))
-    df = pd.DataFrame(list(trackpoints))
-    #trackpoints_df = pd.DataFrame(list(trackpoints))
 
-    print("Finding distance walked for user 112...")
-    last = None
 
-    #list of different distances, always start with 0 and not starting/ending points between 
-    # activities
-    distance_sorted = [] 
-    list_of_distance = [] #Used for tmp storage of distances
-    for e in df.itertuples():
-        if last:
-            #Create new list if we change activity
-            if last_activity_id != e.activity_id:
-                distance_sorted.append(list_of_distance)
-                list_of_distance = []
-                list_of_distance.append(0)
-            else:
-                list_of_distance.append(distance(e[4], e[5], last[4], last[5]))
+
+    df = pd.DataFrame(list(trackpoints_2))
+    df_a = pd.DataFrame(list(activities))
+
+    # Get _id and transportation_mode form df_a and put it into a dictionary
+    
+    print(df.head())
+    print(df_a.head())
+    df = pd.merge(df, df_a, left_on="activity_id", right_on="_id")
+
+    print(df.head())
+    print("Merging dataframes...")
+    activity = ""
+    totals = []
+    tmp_distances= [0]
+
+    for e in df:
+        print(e)
+
+    for index, row in df.iterrows():
+        if index%1000 == 0:
+            print(f"Progress: {index}/{len(df)}")
+            #print(totals)
+
+        # Get transportation mode from activity_id in trackpoints from activity collection
+        if row["transportation_mode"] != "walk" or row["uid_x"] != "112": 
+            continue
+
+        if activity != row["activity_id"]:
+            activity = row["activity_id"]
+            totals.append(sum(tmp_distances))
+            last = (row["lat"], row["lon"])
+            tmp_distances = [0]
         else:
-            list_of_distance.append(0)
-        last = e
-        last_activity_id = e[3]
-    
-    #Sum distances for different activities
-    sum_of_distance = 0
-    for item in distance_sorted:
-        sum_of_distance += sum(item)
-    print(f"Total distance walked for user_id 112 (in km): {sum_of_distance}")
+            tmp_distances.append(haversine(last, (row["lat"], row["lon"])))
+            last = (row["lat"], row["lon"])
+
+    print(f"Distance walked for user 112: {sum(totals)} km")
+
+
 def task_10(connection: DbConnector):
     """ 
     Finds all the users that have been in the forbidden city by mapping users with trackpoints
-    then checking if lat and long corresponds with lat = 39.916 and lon = 116.397. This is done by mapping
-    users to an activity on _id and uid and activites to trackpoints on id and activity_id. We get these from the mongodb
+    then checking if lat and long corresponds with lat = 39.916 and lon = 116.397. 
     """
     users: Cursor = connection.db[COLLECTION_USERS].find({})
     activities: Cursor = connection.db[COLLECTION_ACTIVITIES].find({})
@@ -128,13 +126,9 @@ def task_10(connection: DbConnector):
     liste_of_users = []
     for t in trackpoints:
         #print(t["lat"], t["lon"])
-        if round(t["lat"], 3) == 39.916 and round(t["lon"], 3) == 116.397:
-            #print(t)
-            # map trackpoints to activities on activity_id and id
-            for a in activities:
-                if t["activity_id"] == a["_id"]:
-                    liste_of_users.append(a["uid"])
-                    print(liste_of_users)
+        if round(t["lat"], 3) == 39.916 and round(t["lon"], 3) == 116.397 and t["uid"] not in liste_of_users: 
+            liste_of_users.append(t["uid"])
+            print(liste_of_users)
 
     print(liste_of_users)
 
@@ -149,8 +143,8 @@ def main():
     #task_3(conn)
     #task_4(conn)
 
-    task_7(conn)
-    #task_10(conn)
+    #task_7(conn)
+    task_10(conn)
     conn.close_connection()
 
 
