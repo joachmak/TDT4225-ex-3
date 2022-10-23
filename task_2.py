@@ -35,56 +35,11 @@ def task_5(connection: DbConnector):
                 dict[transportation_mode] = 1
     pprint.pprint(dict)
 
-def check_float(x):
-    try:
-        float(x)
-        return True
-    except ValueError:
-        return False
-
-
-def task_8(connection: DbConnector):
- """create dictionary of activities with their altitude gained"""
- trackpoints = connection.db[COLLECTION_TRACKPOINTS].find({})
- activities = connection.db[COLLECTION_ACTIVITIES].find({})
- altitude_gained_by_activity = {}
- prev_trackpoint = trackpoints[0]
- for trackpoint in trackpoints:
-    if trackpoint["alt"]!=-777:
-        if trackpoint["activity_id"] == prev_trackpoint["activity_id"]:
-            if check_float(trackpoint["alt"]) and check_float(prev_trackpoint["alt"]):
-                if float(trackpoint["alt"]) > float(prev_trackpoint["alt"]):
-                    if trackpoint["activity_id"] in altitude_gained_by_activity:
-                        altitude_gained_by_activity[trackpoint["activity_id"]] += float(trackpoint["alt"]) - float(prev_trackpoint["alt"])
-                    else:
-                        altitude_gained_by_activity[trackpoint["activity_id"]] = float(trackpoint["alt"]) - float(prev_trackpoint["alt"])
-        prev_trackpoint = trackpoint
- pprint.pprint(altitude_gained_by_activity)
- """dict_users = {}   
- for activity in activities:
-    print("Finding altitude for activity: " +activity["_id"] + " for user: " + activity["uid"])
-    if activity["uid"] in dict_users:
-        dict_users[activity["uid"]] += dict_activities[activity["_id"]]
-    else:  
-        dict_users[activity["uid"]] = dict_activities[activity["_id"]]
- sorted_user_altitude = dict(sorted(dict_users.items(), key=lambda item: item[1], reverse=True))
- first_20_values = dict(list(sorted_user_altitude.items())[:20])
- for key in first_20_values:
-    first_20_values[key] *= FEET_TO_METERS
-    print("User: " + key + " altitude: " + str(first_20_values[key]))
- pprint.pprint(first_20_values)"""
-
-
-
-
-
-
-
-        
 
 
 def task_11(connection: DbConnector):
     """Find users with transportation modes and their most used transportation mode"""
+    print("Users and their most used transportation mode")
     activities = connection.db[COLLECTION_ACTIVITIES].find({})
     dict = {}
     for element in activities:
@@ -109,23 +64,15 @@ def task_11(connection: DbConnector):
 
 
 
-   
-            
 
-
-
-        
-    
 
 
 
 def main():
     conn: DbConnector = DbConnector()
-    #task_2(conn)
-    #task_3(conn)
-    #task_5(conn)
-    task_8(conn)
-    #task_11(conn)
+    task_2(conn)
+    task_5(conn)
+    task_11(conn)
     conn.close_connection()
 
 
