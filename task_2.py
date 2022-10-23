@@ -52,10 +52,66 @@ def task_4(connection: DbConnector):
     activities.close()
 
 
-def task_7(connection: DbConnector):
-    # To be continued, removed temporarily
-    pass
+def distance(in_lat, in_long, in_lat2, in_long2):
+    lat_dist = abs(in_lat2 - in_lat)
+    long_dist = abs(in_long2 - in_long)
+    #print(f"lat1: {in_lat}, lon1: {in_long} lat2: {in_lat2}, lon2: {in_long2}")
+    
+    #Assuming that the Earth is a sphere with a circumference of 40075 km.
+    #adjust for earth curvature
+    #This adjusts for 1 degree of latitude/longitude
+    len_lat = 111.32 #km
+    len_lon = 40075* np.cos( in_lat ) / 360 #km
+    euclidean_dist = np.sqrt((lat_dist*len_lat)**2 + (long_dist*len_lon)**2)
 
+
+    #print(f"Distance: {euclidean_dist} km")
+    return euclidean_dist    
+
+def task_7(connection: DbConnector):
+    import pandas as pd
+    #print_task_number(7)
+
+    users: Cursor = connection.db[COLLECTION_USERS].find({})
+    activities: Cursor = connection.db[COLLECTION_ACTIVITIES].find({})
+    trackpoints: Cursor =connection.db[COLLECTION_TRACKPOINTS].aggregate([{
+        "$match": {
+            "uid": "112"
+        }
+    }])
+
+    
+    
+    #users_df = pd.DataFrame(list(users))
+    df = pd.DataFrame(list(trackpoints))
+    #trackpoints_df = pd.DataFrame(list(trackpoints))
+
+    print("Finding distance walked for user 112...")
+    last = None
+
+    #list of different distances, always start with 0 and not starting/ending points between 
+    # activities
+    distance_sorted = [] 
+    list_of_distance = [] #Used for tmp storage of distances
+    for e in df.itertuples():
+        if last:
+            #Create new list if we change activity
+            if last_activity_id != e.activity_id:
+                distance_sorted.append(list_of_distance)
+                list_of_distance = []
+                list_of_distance.append(0)
+            else:
+                list_of_distance.append(distance(e[4], e[5], last[4], last[5]))
+        else:
+            list_of_distance.append(0)
+        last = e
+        last_activity_id = e[3]
+    
+    #Sum distances for different activities
+    sum_of_distance = 0
+    for item in distance_sorted:
+        sum_of_distance += sum(item)
+    print(f"Total distance walked for user_id 112 (in km): {sum_of_distance}")
 def task_10(connection: DbConnector):
     """ 
     Finds all the users that have been in the forbidden city by mapping users with trackpoints
@@ -93,8 +149,8 @@ def main():
     #task_3(conn)
     #task_4(conn)
 
-    #task_7(conn)
-    task_10(conn)
+    task_7(conn)
+    #task_10(conn)
     conn.close_connection()
 
 
