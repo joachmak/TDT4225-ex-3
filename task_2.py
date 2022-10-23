@@ -359,6 +359,7 @@ def task_10(connection: DbConnector):
     for t in trackpoints:
         if round(float(t["lat"]), 3) == 39.916 and round(float(t["lon"]), 3) == 116.397 and t["uid"] not in liste_of_users: 
             liste_of_users.append(t["uid"])
+            print(f"Found user {t['uid']} in forbidden city on coordinates lat: {t['lat']} and lon: {t['lon']}")
             print(liste_of_users)
 
     print(liste_of_users)
