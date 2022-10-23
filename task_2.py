@@ -79,6 +79,8 @@ def task_4(connection: DbConnector):
     unique_uids = activities.distinct("uid")
     
     print(f"Number of activities with taxi with with a unique uid: {len(unique_uids)}")
+    print("These users are:")
+    print(unique_uids)
     activities.close()
 
 
@@ -355,13 +357,13 @@ def task_10(connection: DbConnector):
 
     # Iterate through trackpoints, if lat == 39.916 and lon == 116.397 we map
     # those trackpoints to activities and append them to a list along with uid in activities
-    liste_of_users = []
+    list_of_users = []
     for t in trackpoints:
-        if round(float(t["lat"]), 3) == 39.916 and round(float(t["lon"]), 3) == 116.397 and t["uid"] not in liste_of_users: 
-            liste_of_users.append(t["uid"])
+        if round(float(t["lat"]), 3) == 39.916 and round(float(t["lon"]), 3) == 116.397 and t["uid"] not in list_of_users: 
+            list_of_users.append(t["uid"])
             print(f"Found user {t['uid']} in forbidden city on coordinates lat: {t['lat']} and lon: {t['lon']}")
 
-    print(liste_of_users)
+    print(list_of_users)
 
 
     users.close()
