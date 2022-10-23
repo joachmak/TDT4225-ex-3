@@ -32,23 +32,18 @@ def task_11(connection: DbConnector):
     """Find users with transportation modes and their most used transportation mode"""
     print("Users and their most used transportation mode")
     activities = connection.db[COLLECTION_ACTIVITIES].find({})
-    dict = {}
-    for element in activities:
-        activity = str(element)
-        array_activity = activity.split(",")
-        transport = array_activity[1]
-        if transport!=" 'transportation_mode': None":
-            transportation_mode = transport.split(":")[1].replace("'","")
-            user_id = array_activity[4].split(":")[1].replace("}","")
-            #creates dictionary with user_id as key and all transportation_modes as values
-            if user_id in dict:
-                dict[user_id].append(transportation_mode)
-            else:
-                dict[user_id] = [transportation_mode]
-    #finds value with the most occurrences for each user
-    for key in dict:
-        dict[key] = max(set(dict[key]), key=dict[key].count)
-    pprint.pprint(dict)
+    user_activity_dict = {}
+    for activity in activities:
+        transportation_mode = activity["transportation_mode"]
+        if transportation_mode is None:
+            continue
+        uid = activity["uid"]
+        if uid not in user_activity_dict:
+            user_activity_dict[uid] = []
+        user_activity_dict[uid].append(transportation_mode)
+    for user in user_activity_dict:
+        user_activity_dict[user] = max(set(user_activity_dict[user]), key=user_activity_dict[user].count)
+    pprint.pprint(user_activity_dict)
 
 
 
@@ -56,8 +51,8 @@ def task_11(connection: DbConnector):
 def main():
     conn: DbConnector = DbConnector()
     #task_2(conn)
-    task_5(conn)
-    #task_11(conn)
+    #task_5(conn)
+    task_11(conn)
     conn.close_connection()
 
 
