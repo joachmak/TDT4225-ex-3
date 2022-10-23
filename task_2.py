@@ -18,17 +18,6 @@ def task_2(connection: DbConnector):
         sum += record[1]
     print(f"Average activity count per user: {round(sum/len(l),2)}")
 
-    
-def task_3(connection: DbConnector):
-    """ Find top 20 users with the highest number of activities """
-    users = connection.db[COLLECTION_USERS].find({})
-    l = list(map(lambda user: [user["_id"], len(user["activity_ids"])], users))
-    l.sort(key=lambda user: user[1], reverse=True)
-    i = 1
-    print("pos. [user, activity count]:")
-    for record in l[:20]:
-        print(f"{i}. {record}")
-        i += 1
 
 def task_5(connection: DbConnector):
     """Find transportation modes and group by these. Do not include null"""
@@ -58,19 +47,19 @@ def task_8(connection: DbConnector):
  """create dictionary of activities with their altitude gained"""
  trackpoints = connection.db[COLLECTION_TRACKPOINTS].find({})
  activities = connection.db[COLLECTION_ACTIVITIES].find({})
- dict_activities = {}
+ altitude_gained_by_activity = {}
  prev_trackpoint = trackpoints[0]
  for trackpoint in trackpoints:
     if trackpoint["alt"]!=-777:
         if trackpoint["activity_id"] == prev_trackpoint["activity_id"]:
             if check_float(trackpoint["alt"]) and check_float(prev_trackpoint["alt"]):
                 if float(trackpoint["alt"]) > float(prev_trackpoint["alt"]):
-                    if trackpoint["activity_id"] in dict_activities:
-                        dict_activities[trackpoint["activity_id"]] += float(trackpoint["alt"]) - float(prev_trackpoint["alt"])
+                    if trackpoint["activity_id"] in altitude_gained_by_activity:
+                        altitude_gained_by_activity[trackpoint["activity_id"]] += float(trackpoint["alt"]) - float(prev_trackpoint["alt"])
                     else:
-                        dict_activities[trackpoint["activity_id"]] = float(trackpoint["alt"]) - float(prev_trackpoint["alt"])
+                        altitude_gained_by_activity[trackpoint["activity_id"]] = float(trackpoint["alt"]) - float(prev_trackpoint["alt"])
         prev_trackpoint = trackpoint
- pprint.pprint(dict_activities)
+ pprint.pprint(altitude_gained_by_activity)
  """dict_users = {}   
  for activity in activities:
     print("Finding altitude for activity: " +activity["_id"] + " for user: " + activity["uid"])
