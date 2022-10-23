@@ -1,8 +1,7 @@
-from re import X
-from typing import Any
+
 
 from numpy import empty
-from utils.constants import COLLECTION_ACTIVITIES, COLLECTION_USERS, COLLECTION_TRACKPOINTS
+from utils.constants import COLLECTION_ACTIVITIES, COLLECTION_USERS, COLLECTION_TRACKPOINTS, FEET_TO_METERS
 from utils.db_connector import DbConnector
 from pymongo import MongoClient
 import utils.db as dbpy
@@ -47,67 +46,53 @@ def task_5(connection: DbConnector):
                 dict[transportation_mode] = 1
     pprint.pprint(dict)
 
+def check_float(x):
+    try:
+        float(x)
+        return True
+    except ValueError:
+        return False
+
+
 def task_8(connection: DbConnector):
-    """Find users with most altitude meters gained"""
-    old_activity= None
-    old_trackpoint= None
-    sum_activity = 0
-    trackpoints = connection.db[COLLECTION_TRACKPOINTS].find({})
-    dict = {}
-    for element in trackpoints[:500000]:
-        elements = str(element)
-        array1 = elements.split(",")
-        activity_id = array1[5].split(":")[1].replace("}","").replace("'","")
-        trackpoint = array1[3].split(":")[1].replace("'", "")
-        if old_activity == None:
-            old_activity = activity_id
-            old_trackpoint = trackpoint
-        elif old_activity == activity_id:
-            if float(trackpoint) > float(old_trackpoint):
-                sum_activity += (float(trackpoint) - float(old_trackpoint))
-            old_activity = activity_id
-        elif old_activity != activity_id:
-            if sum_activity!=0:
-                dict[old_activity] = sum_activity
-            old_trackpoint = trackpoint
-            sum_activity = 0
-            old_activity = activity_id
+ """create dictionary of activities with their altitude gained"""
+ trackpoints = connection.db[COLLECTION_TRACKPOINTS].find({})
+ activities = connection.db[COLLECTION_ACTIVITIES].find({})
+ dict_activities = {}
+ prev_trackpoint = trackpoints[0]
+ for trackpoint in trackpoints:
+    if trackpoint["alt"]!=-777:
+        if trackpoint["activity_id"] == prev_trackpoint["activity_id"]:
+            if check_float(trackpoint["alt"]) and check_float(prev_trackpoint["alt"]):
+                if float(trackpoint["alt"]) > float(prev_trackpoint["alt"]):
+                    if trackpoint["activity_id"] in dict_activities:
+                        dict_activities[trackpoint["activity_id"]] += float(trackpoint["alt"]) - float(prev_trackpoint["alt"])
+                    else:
+                        dict_activities[trackpoint["activity_id"]] = float(trackpoint["alt"]) - float(prev_trackpoint["alt"])
+        prev_trackpoint = trackpoint
+ pprint.pprint(dict_activities)
+ """dict_users = {}   
+ for activity in activities:
+    print("Finding altitude for activity: " +activity["_id"] + " for user: " + activity["uid"])
+    if activity["uid"] in dict_users:
+        dict_users[activity["uid"]] += dict_activities[activity["_id"]]
+    else:  
+        dict_users[activity["uid"]] = dict_activities[activity["_id"]]
+ sorted_user_altitude = dict(sorted(dict_users.items(), key=lambda item: item[1], reverse=True))
+ first_20_values = dict(list(sorted_user_altitude.items())[:20])
+ for key in first_20_values:
+    first_20_values[key] *= FEET_TO_METERS
+    print("User: " + key + " altitude: " + str(first_20_values[key]))
+ pprint.pprint(first_20_values)"""
 
-    pprint.pprint(dict)
 
-    users_with_altitude = {}
-    for key in dict:
-        user_id = connection.db[COLLECTION_ACTIVITIES].find({"_id": key})[0]["user_id"]
-        if user_id in users_with_altitude:
-            users_with_altitude[user_id] += dict[key]
-        else:
-            users_with_altitude[user_id] = dict[key]
-    pprint.pprint(users_with_altitude)
+
+
+
 
 
         
 
-
-
-
-
-            
-"""            if get_altitude(connection,n)>get_altitude(connection,n-1):
-                print("yes")
-        n+=1"""
-
-
-""""        elements = str(element)
-        array1 = elements.split(",")
-        activity_id = array1[5].split(":")[1].replace("'","").replace("}","")
-        altitude = array1[3].split(":")[1].replace("'","")
-        if activity_id in dict:
-            dict[activity_id].append(altitude)
-
-        else:
-            dict[activity_id] = [altitude]
-    print(dict)
-"""
 
 def task_11(connection: DbConnector):
     """Find users with transportation modes and their most used transportation mode"""
