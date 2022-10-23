@@ -92,8 +92,8 @@ def upload_activities_and_trackpoints(connection: DbConnector) -> dict:
             # print(f"{len(files)} FILES IN TOTAL\n\n")
             print(f"\tReading {len(files)} .plt-files...")
             for plt_filename in files:
-                _id = uuid.uuid4()  # generate activity id
-                data = read_trackpoint_data(os.path.join(trajectory_path, plt_filename))
+                activity_id = uuid.uuid4()  # generate activity id
+                data = read_trackpoint_data(os.path.join(trajectory_path, plt_filename), user_dir)
                 if len(data) > 0:  # If there are <=2500 trackpoints
                     first_tp = data[0]
                     last_tp = data[len(data) - 1]
@@ -104,10 +104,10 @@ def upload_activities_and_trackpoints(connection: DbConnector) -> dict:
                         # Add labeled activity
                         transportation_mode = labeled_activities_dict[activity_start_date][2]
                         print("\t\t.plt file " + plt_filename + " is a labeled activity with transportation Label " + transportation_mode)
-                    activity: classes.Activity = classes.Activity(str(_id), transportation_mode, activity_start_date, activity_end_date, user_dir)
+                    activity: classes.Activity = classes.Activity(str(activity_id), transportation_mode, activity_start_date, activity_end_date, user_dir)
                     activities_to_insert.append(activity)
-                    user_activities[user_dir].append(str(_id))
-                    trackpoints_to_insert += process_trackpoint_data(data, _id)
+                    user_activities[user_dir].append(str(activity_id))
+                    trackpoints_to_insert += process_trackpoint_data(data, activity_id)
                 else:
                     skipped_plt_files_count += 1
         total_activities_inserted += len(activities_to_insert)
@@ -128,17 +128,17 @@ def upload_activities_and_trackpoints(connection: DbConnector) -> dict:
 
 
 def process_trackpoint_data(trackpoint_data, activity_id):
-    return list(map(lambda tp: classes.TrackPoint(tp[0], tp[1], tp[2], tp[3], str(activity_id)), trackpoint_data))
+    return list(map(lambda tp: classes.TrackPoint(tp[0], tp[1], tp[2], tp[3], str(activity_id), tp[4], tp[5]), trackpoint_data))
 
 
 def _is_float(string: str):
     return re.match(r'^-?\d+(?:\.\d+)$', string)
 
 
-def _transform_trackpoint_line(line: str):
+def _transform_trackpoint_line(line: str, previous_time: str or None, uid: str):
     """
     Convert trackpoint file line to tuple, convert float values to float, combine date and time cols
-    Format: (lat, lon, alt, datetime)
+    Format: (lat, lon, alt, time, previous_time)
     """
     line = list(map(
         lambda elem: float(elem) if _is_float(elem)
@@ -151,15 +151,22 @@ def _transform_trackpoint_line(line: str):
     date = line.pop(3)
     time = line.pop(3)
     line.append(f"{date.replace('-', '/')} {time}")
+    line.append(previous_time)
+    line.append(uid)
     return tuple(line)
 
 
-def read_trackpoint_data(path) -> list:
+def read_trackpoint_data(path, uid: str) -> list:
     """ Read trajectory data, ignore first 6 lines. Return empty list if there are >2500 trackpoints. """
     with open(path) as f:
         lines = f.readlines()[6:]
         if len(lines) > constants.MAX_TRACKPOINT_COUNT:
-            #print(f"\t\t...Skipping file as it contains too many trackpoints (>{constants.MAX_TRACKPOINT_COUNT})")
             return []
-        return list(map(lambda line: _transform_trackpoint_line(line), lines))
+        previous_time = None
+        res = []
+        for i in range(len(lines)):
+            line = _transform_trackpoint_line(lines[i], previous_time, uid)
+            res.append(line)
+            previous_time = line[3]
+        return res
 
