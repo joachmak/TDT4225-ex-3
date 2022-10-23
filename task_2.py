@@ -1,13 +1,6 @@
-
-
-from threading import active_count
-from numpy import empty
-from utils.constants import COLLECTION_ACTIVITIES, COLLECTION_USERS, COLLECTION_TRACKPOINTS, FEET_TO_METERS
+from utils.constants import COLLECTION_ACTIVITIES, COLLECTION_USERS
 from utils.db_connector import DbConnector
-from pymongo import MongoClient
-import utils.db as dbpy
 import pprint
-client = MongoClient('mongodb://localhost:27017/')
 
 
 def task_2(connection: DbConnector):
@@ -21,21 +14,18 @@ def task_2(connection: DbConnector):
 
 
 def task_5(connection: DbConnector):
-    """Find transportation modes and group by these. Do not include null"""
-    activities = connection.db[COLLECTION_ACTIVITIES].find({})
-    dict = {}
+    """ Find all types of transportation modes and count how many activities that are
+        tagged with these transportation mode labels """
+    activities = connection.db[COLLECTION_ACTIVITIES].find({})  # get all activities
+    t_mode_dict = {}
     for activity in activities:
-        elements = str(activity)
-        activity_array = elements.split(",")
-        transportation_info = activity_array[1]
-        if transportation_info!=" 'transportation_mode': None":
-            transportation_mode = transportation_info.split(":")[1].replace("'","")
-            if transportation_mode in dict:
-                dict[transportation_mode]+=1
-            else:
-                dict[transportation_mode] = 1
-    pprint.pprint(dict)
-
+        transportation_mode = activity["transportation_mode"]
+        if transportation_mode is None:
+            continue
+        if transportation_mode not in t_mode_dict:
+            t_mode_dict[transportation_mode] = 0
+        t_mode_dict[transportation_mode] += 1
+    pprint.pprint(t_mode_dict)
 
 
 def task_11(connection: DbConnector):
@@ -66,8 +56,8 @@ def task_11(connection: DbConnector):
 def main():
     conn: DbConnector = DbConnector()
     #task_2(conn)
-    #task_5(conn)
-    task_11(conn)
+    task_5(conn)
+    #task_11(conn)
     conn.close_connection()
 
 
