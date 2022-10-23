@@ -164,14 +164,73 @@ def task_9(connection: DbConnector):
         print(f"{key}\t{user_invalid_activity_count[key]}")
 
 
+def task_8(connection: DbConnector):
+    """ Find the top 20 users who have gained the most altitude meters """
+    print_task_message(8)
+    user_ids = list(map(lambda usr: usr["_id"], connection.db[COLLECTION_USERS].find({})))
+    alt_gained = {}
+    user_count = len(user_ids)
+    j = 1
+    for uid in user_ids:
+        alt_gained[uid] = 0
+        print(f"Fetching activity data for user {j}/{user_count}, id " + uid)
+        j += 1
+        # For each user, get array of {_id: activity_id, trackpoints: [list of trackpoints with altitude and time]}
+        pipeline = [
+            {
+                "$match": {
+                    "alt": {"$ne": -777},
+                    "uid": uid,
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$activity_id",
+                    "trackpoints": {
+                        "$push": {
+                            "alt": "$alt",
+                            "time": "$time",
+                        }
+                    },
+                },
+            },
+        ]
+        activities = connection.db[COLLECTION_TRACKPOINTS].aggregate(pipeline)
+        print("\tGot activities! Python code is running now.")
+        for activity in activities:
+            trackpoints = activity["trackpoints"]
+            if len(trackpoints) == 0:  # skip if there are 0 trackpoints for this activity (just in case)
+                continue
+            altitude_gained = 0
+            for i in range(1, len(trackpoints)):
+                # iterate through all trackpoints and sum altitude gain
+                trackpoint = trackpoints[i]
+                prev_trackpoint = trackpoints[i - 1]
+                alt_diff = float(trackpoint["alt"]) - float(prev_trackpoint["alt"])
+                if alt_diff > 0:  # only add if the diff is positive
+                    altitude_gained += alt_diff
+            alt_gained[uid] += altitude_gained  # add total activity altitude gain to user's total altitude gain
+    # sort users on altitude gained (descending)
+    user_altitudes = []
+    for user in alt_gained.keys():
+        user_altitudes.append([user, alt_gained[user]])
+    user_altitudes.sort(key=lambda u_alt: u_alt[1], reverse=True)
+    i = 1
+    print("\nTop 20 users who have gained the most altitude in meters:")
+    print("Pos.\tuid\tmeters ascended")
+    for altitude in user_altitudes[:20]:
+        print(f"{i}.\t{altitude[0]}\t{round(altitude[1] / 3.2808)}m")  # 1 meter = 3.2808 feet
+        i += 1
+
 
 
 
 def main():
     conn: DbConnector = DbConnector()
-    task_3(conn)
-    task_6(conn)
-    task_9(conn)
+    #task_3(conn)
+    #task_6(conn)
+    #task_9(conn)
+    task_8(conn)
     conn.close_connection()
 
 
