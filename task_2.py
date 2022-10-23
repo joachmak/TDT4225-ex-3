@@ -169,6 +169,55 @@ def task_6(connection: DbConnector):
           "(or in this case, seconds).")
 
 
+def task_7(connection: DbConnector):
+    from haversine import haversine, Unit
+    import pandas as pd
+
+    print_task_message(7)
+    trackpoints_2: Cursor =connection.db[COLLECTION_TRACKPOINTS].aggregate([{
+    "$match": {
+        "uid": "112"
+        }
+    }])
+    activities: Cursor = connection.db[COLLECTION_ACTIVITIES].aggregate([{
+        "$match": {
+            "transportation_mode": "walk"
+        }
+    }])
+
+    df = pd.DataFrame(list(trackpoints_2))
+    df_a = pd.DataFrame(list(activities))
+
+    # Merge the two dataframes so we get transortation mode and distance in same dataframe
+    print("Merging dataframes...")
+    df = pd.merge(df, df_a, left_on="activity_id", right_on="_id")
+
+    activity = ""
+    totals = []
+    tmp_distances= [0]
+
+    for _, row in df.iterrows():
+
+        # Progress
+       #if index%1000 == 0:
+            #print(f"Progress: {index}/{len(df)}")
+
+        # Get transportation mode from activity_id in trackpoints from activity collection
+        if row["transportation_mode"] != "walk" or row["uid_x"] != "112": 
+            continue
+
+        if activity != row["activity_id"]:
+            activity = row["activity_id"]
+            totals.append(sum(tmp_distances))
+            last = (row["lat"], row["lon"])
+            tmp_distances = [0]
+        else:
+            tmp_distances.append(haversine(last, (row["lat"], row["lon"])))
+            last = (row["lat"], row["lon"])
+
+    print(f"\nDistance walked for user 112: {sum(totals)} km")
+
+
 def task_8(connection: DbConnector):
     """ Find the top 20 users who have gained the most altitude meters """
     print_task_message(8)
@@ -228,55 +277,6 @@ def task_8(connection: DbConnector):
         i += 1
 
 
-
-
-def task_7(connection: DbConnector):
-    from haversine import haversine, Unit
-    import pandas as pd
-
-    print_task_message(7)
-    trackpoints_2: Cursor =connection.db[COLLECTION_TRACKPOINTS].aggregate([{
-    "$match": {
-        "uid": "112"
-        }
-    }])
-    activities: Cursor = connection.db[COLLECTION_ACTIVITIES].aggregate([{
-        "$match": {
-            "transportation_mode": "walk"
-        }
-    }])
-
-    df = pd.DataFrame(list(trackpoints_2))
-    df_a = pd.DataFrame(list(activities))
-
-    # Merge the two dataframes so we get transortation mode and distance in same dataframe
-    print("Merging dataframes...")
-    df = pd.merge(df, df_a, left_on="activity_id", right_on="_id")
-
-    activity = ""
-    totals = []
-    tmp_distances= [0]
-
-    for _, row in df.iterrows():
-
-        # Progress
-       #if index%1000 == 0:
-            #print(f"Progress: {index}/{len(df)}")
-
-        # Get transportation mode from activity_id in trackpoints from activity collection
-        if row["transportation_mode"] != "walk" or row["uid_x"] != "112": 
-            continue
-
-        if activity != row["activity_id"]:
-            activity = row["activity_id"]
-            totals.append(sum(tmp_distances))
-            last = (row["lat"], row["lon"])
-            tmp_distances = [0]
-        else:
-            tmp_distances.append(haversine(last, (row["lat"], row["lon"])))
-            last = (row["lat"], row["lon"])
-
-    print(f"\nDistance walked for user 112: {sum(totals)} km")
 
 
 
@@ -360,7 +360,6 @@ def task_10(connection: DbConnector):
         if round(float(t["lat"]), 3) == 39.916 and round(float(t["lon"]), 3) == 116.397 and t["uid"] not in liste_of_users: 
             liste_of_users.append(t["uid"])
             print(f"Found user {t['uid']} in forbidden city on coordinates lat: {t['lat']} and lon: {t['lon']}")
-            print(liste_of_users)
 
     print(liste_of_users)
 
@@ -390,17 +389,17 @@ def task_11(connection: DbConnector):
 
 def main():
     conn: DbConnector = DbConnector()
-    #task_1(conn)
-    #task_2(conn)
-    #task_3(conn)
-    #task_4(conn)
-    #task_5(conn)
-    #task_6(conn)
-    #task_7(conn)
-    #task_8(conn)
-    #task_9(conn)
+    task_1(conn)
+    task_2(conn)
+    task_3(conn)
+    task_4(conn)
+    task_5(conn)
+    task_6(conn)
+    task_7(conn)
+    task_8(conn)
+    task_9(conn)
     task_10(conn)
-    #task_11(conn)
+    task_11(conn)
     conn.close_connection()
 
 if __name__ == "__main__":
